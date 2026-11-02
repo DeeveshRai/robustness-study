@@ -1,0 +1,5 @@
+dotenv
+pandas
+numpy
+requests
+pandas_ta
