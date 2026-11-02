@@ -1,15 +1,10 @@
 import pandas as pd
 import numpy as np
 import pandas_ta as ta
-from data_pipeline.csv_saver import CSVsaver
 
 class FeatureEngineer:
-    def __init__(self, data, symbol, start, end):
+    def __init__(self, data):
         self.data = data
-        self.folder_name = "features"
-        self.symbol = symbol
-        self.start = start
-        self.end = end
 
         self.features = pd.DataFrame(columns=['date',
                                       'returns_1d', 
@@ -31,7 +26,8 @@ class FeatureEngineer:
                                       'volume_change_1d'
                                       'high_low_range',
                                       'open_close_return',
-                                      'overnight_gap'
+                                      'overnight_gap',
+                                      'target_return'
                                       ]) #add rest later
         
         self.features["date"] = self.data["date"]
@@ -102,6 +98,4 @@ class FeatureEngineer:
         self._add_volume_features()
         self._add_OHLC_features()
 
-        #LAST THING
-        csvsaver = CSVsaver(self.folder_name, self.symbol, self.start, self.end)
-        csvsaver.save_as_csv(self.features) #Save it as a CSV at the end of creating feature dataframe
+        return self.features

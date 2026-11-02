@@ -8,11 +8,21 @@ from data_pipeline.normaliser import Normaliser
 from data_pipeline.cleaning.cleaning import cleaning
 from data_pipeline.formatting.formatting import formatting
 from features.featureEngineer import FeatureEngineer
+from training.target_gen import TargetGenerator
+from data_pipeline.csv_saver import CSVsaver
 
-def create_feature_vector(data_dataframe, symbol, start, end):
-    features = FeatureEngineer(data_dataframe, symbol, start, end)
-    features.create_feature_dataframe()
-    print("end")
+def create_feature_vector(data_dataframe):
+    features = FeatureEngineer(data_dataframe)
+    feature_dataframe = features.create_feature_dataframe()
+    print("created feature vectors")
+    return feature_dataframe
+
+def add_target_return(data_dataframe, feature_dataframe):
+    target = TargetGenerator(data_dataframe, feature_dataframe) 
+    dataframe = target.calculate_next_open_to_open_return()
+    return dataframe
+    print("Added Target Return to feature dataframe")
+    
     
 #IMPLEMENTING CLI
 parser = argparse.ArgumentParser()
@@ -41,6 +51,9 @@ file_name = f"{symbol}_{start}_{end}.csv"
 file_path = os.path.join(data_dir, file_name)
 file_exists_raw = os.path.exists(file_path)
 
+folder_name = "features"
+csv_saver = CSVsaver(folder_name, symbol, start, end)
+
 if not file_exists_raw:
     fetcher_object = Fetcher(API_KEY, symbol, start, end, freq)
     fetcher_object.fetch()
@@ -62,10 +75,14 @@ if not file_exists_raw:
     #python main.py "AAPL" "5Min" "2024-01-03T00%3A00%3A00Z" "2024-01-04T00%3A00%3A00Z" "100" "raw" "sip" "asc"
     #If file exists in raw/cleaned/formatted/normalised...
 
-    create_feature_vector(data_dataframe, symbol, start, end)
+    features = create_feature_vector(data_dataframe)
+    target = add_target_return(data_dataframe, features)
+    csv_saver.save_as_csv(target)
 
 else:
     file_name = os.path.join("data/normalised", file_name)
     df = pd.read_csv(file_name)
-    create_feature_vector(df, symbol, start, end)
+    features = create_feature_vector(df)
+    target = add_target_return(df, features) 
+    csv_saver.save_as_csv(target)
 
