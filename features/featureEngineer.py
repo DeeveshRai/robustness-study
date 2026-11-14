@@ -23,7 +23,7 @@ class FeatureEngineer:
                                       'atr14_norm',
                                       'bollinger_width20',
                                       'relative_volume20',
-                                      'volume_change_1d'
+                                      'volume_change_1d',
                                       'high_low_range',
                                       'open_close_return',
                                       'overnight_gap',
