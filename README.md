@@ -146,6 +146,64 @@ rather than silently bridging those rows. With no explicit history, the first
 invalid lengths, mismatched arrays, and mixed assets are rejected. No model is
 fitted in this stage.
 
+## Model training and walk-forward orchestration (stage 6)
+
+`ModelTrainer` accepts a model exposing `fit(X, y)` and `predict(X)`, a
+`TrainingConfig`, and prepared datasets. Tabular inputs are 2D; sequence inputs
+are 3D with the configured sequence length. Predictions must be one finite
+return per endpoint. Framework-specific sequence models can be wrapped in an
+adapter implementing this interface; no LSTM or Transformer is included yet.
+
+`WalkForwardRunner` runs one configuration over the stage 4 tuning windows.
+For each window it selects eligible history, fits a new preprocessor, builds
+datasets, creates and fits a fresh model, and predicts the validation dates.
+The default model is Ridge regression with alpha=1. The runner also records a
+zero-return baseline (`baseline_prediction=0`), which requires no fitting.
+No hyperparameter search or final test evaluation occurs in this stage.
+
+```python
+import pandas as pd
+from sklearn.linear_model import Ridge
+from training.data_splitter import WindowConfig
+from training.walk_forward import WalkForwardRunner
+
+ready = pd.read_csv("data/model_ready/your_dataset.csv")
+result = WalkForwardRunner().run(
+    ready,
+    WindowConfig("fixed", train_years=5, validation_months=3, step_months=3),
+    model_factory=lambda: Ridge(alpha=1.0),
+)
+predictions = result.predictions
+# Keep each scaler and trained model together for subsequent predictions.
+first_window = result.windows[0]
+```
+
+`result.predictions` includes asset, feature date, target entry/exit dates,
+predicted return, actual return, zero-return baseline, window ID, and
+`fit_before` (an exclusive daily cutoff). `result.windows` retains the fitted
+preprocessor and trainer, training sample count, training endpoint range, and
+last training target exit. Both configuration objects are retained on the
+result. Fitted objects are kept in memory; the CLI saves the prediction CSV.
+
+Sequence runs require `TrainingConfig("sequence", sequence_length=20)`, a
+model factory accepting 3D inputs, and `full_features=...`. Training sequences
+stay within the selected training window. Both training and validation use
+the full observed feature history for context, so label filtering cannot
+silently compress time. Early training endpoints lacking context are omitted;
+undefined context features raise an error. Validation retains its first date
+when enough context is available.
+
+From the repository root, run a single Ridge configuration with:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m training.run_training data/model_ready/your_dataset.csv data/predictions/ridge.csv --mode fixed --train-years 5 --months 3 --alpha 1.0
+```
+
+This command requires data covering 2018--2021 and the preceding training
+history. The existing local SPY cache ends in 2017, so it cannot run these
+research windows yet. Training execution is verified using synthetic histories;
+no predictive-performance claims follow from those checks.
+
 1. Target Generation:
     1. Predict next opening RETURN:
         
