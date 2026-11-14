@@ -17,9 +17,8 @@ class Normaliser:
     
     def _rename_columns(self, df):
         columns = ["date", "close", "high", "low", "open", "volume", "adjClose", "adjHigh", "adjLow", "adjOpen", "adjVolume", "divCash", "splitFactor"]
-        df.columns = columns
-        
-        return df
+        # Select by name: CSV column order must not change price meanings.
+        return df.loc[:, columns].copy()
     
     # def _reorder(self, df):
     #     return df.iloc[:, [5, 4, 1, 2, 0, 6, 7, 3]]

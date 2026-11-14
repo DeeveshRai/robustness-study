@@ -16,4 +16,5 @@ class CSVsaver:
         file_name = f"{self.symbol}_{self.start}_{self.end}.csv"
         file_path = os.path.join(dir, file_name)
 
-        data.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
+        # Each call saves a complete derived dataset, replacing any older run.
+        data.to_csv(file_path, mode='w', header=True, index=False)

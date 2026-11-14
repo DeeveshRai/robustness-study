@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
 import pandas_ta as ta
+from data_pipeline.contracts import prepare_daily_observations
 
 class FeatureEngineer:
     def __init__(self, data):
-        self.data = data
+        self.data = prepare_daily_observations(data)
 
         self.features = pd.DataFrame(columns=['date',
                                       'returns_1d', 
@@ -31,6 +32,7 @@ class FeatureEngineer:
                                       ]) #add rest later
         
         self.features["date"] = self.data["date"]
+        self.features["asset"] = self.data["asset"]
 
     def _add_return_features(self):
         self.features["returns_1d"] = np.log(self.data["adjClose"] / self.data["adjClose"].shift(1))

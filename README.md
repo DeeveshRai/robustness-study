@@ -6,6 +6,48 @@ Within the top level \Backtester-Data-Pipeline call: .\\scripts\activate
 
 Within the top level \Backtester-Data-Pipeline call: deactivate
 
+## Daily data contract (stage 1)
+
+Each row represents one asset's daily trading observation. `date` is the
+feature observation date, parsed as a UTC timestamp; features are available
+after that day's bar completes. It is a daily bar label, not an intraday
+execution timestamp. The CLI frequency must be `daily`.
+
+`data_pipeline/contracts.py` copies and validates observations before feature
+and target generation. Each history must contain one asset, non-missing dates,
+at most one row per UTC date, and ascending dates. It resets the index so
+features and targets align by row. Process assets separately before combining
+their model datasets. Sorting and duplicate resolution remain cleaning's job.
+
+The feature output retains `asset` and `date`. Target generation adds
+`target_entry_date` (the next observed trading date) and `target_exit_date`
+(the second subsequent trading date). These follow observations, not calendar
+days. The target becomes observable at the exit day's open. Missing future
+observations remain missing; filtering and label-availability enforcement
+will be implemented in later stages. Metadata is excluded from numeric model
+inputs by the existing explicit feature list.
+
+Run the contract checks with:
+`.\.venv\Scripts\python.exe -B -m unittest discover -s tests -v`
+
+## Cached data processing (stage 2)
+
+`run_pipeline` in `main.py` fetches only when the raw CSV is absent. Both fresh
+and cached runs then follow the same path:
+
+`raw cache -> combine chunks -> normalise -> clean globally -> validate contract -> features -> targets`
+
+Normalisation selects columns by name. Cleaning sorts the complete history and
+keeps the first valid occurrence of each timestamp; stable sorting preserves
+raw-file order when duplicate timestamps have conflicting values. Derived
+normalised, cleaned, and feature CSVs are replaced on each run, so reruns do not
+append duplicate observations. Raw cached data is reused without modification.
+The cleaned CSV stores cleaned prices; asset metadata is attached at the next
+contract boundary and retained in the feature/target CSV.
+
+Example using an existing cache:
+`.\.venv\Scripts\python.exe -B main.py spy 1999-01-03 2017-12-31 daily`
+
 1. Target Generation:
     1. Predict next opening RETURN:
         

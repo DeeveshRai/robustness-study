@@ -17,7 +17,8 @@ Order of cleaning:
 
 def cleaning(df, folder_name, symbol, start, end):
 
-    type_checked = type_coersion(df)
+    # The caller supplies the complete history, not individual CSV chunks.
+    type_checked = type_coersion(df.copy())
     missing_values_removed = removing_rows_with_missing_values(type_checked)
     sorted_by_timestamp = sort_df_by_timestamp(missing_values_removed)
     removing_duplicates = duplicate_timestamps_check(sorted_by_timestamp)
