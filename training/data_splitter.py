@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from data_pipeline.contracts import prepare_daily_observations
-from features.schema import FEATURE_COLUMNS
+from training.preprocessing import Preprocessor  # Preserve the existing import location.
 
 
 @dataclass(frozen=True)
@@ -95,24 +95,5 @@ class DataSplitter:
             & (data["date"] < self.TEST_END)
             & (data["target_exit_date"] < self.TEST_END)
         ].copy()
-
-
-class Preprocessor:
-    def __init__(self):
-        self.columns = FEATURE_COLUMNS.copy()
-
-    def standardise_input(self, train, validation):
-        from sklearn.preprocessing import StandardScaler
-
-        scaler = StandardScaler()
-
-        X_train = scaler.fit_transform(train[self.columns])
-        X_val = scaler.transform(validation[self.columns])
-
-        y_train = train["target_return"].to_numpy()
-        y_val = validation["target_return"].to_numpy()
-
-        return X_train, X_val, y_train, y_val
-
 
 

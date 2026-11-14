@@ -104,6 +104,48 @@ missing coverage. The current local SPY cache ends in 2017, so additional
 Example configuration:
 `WindowConfig(mode="fixed", train_years=5, validation_months=3, step_months=3)`
 
+## Preprocessing and dataset construction (stage 5)
+
+`training/preprocessing.py` owns a `StandardScaler` fitted on the eligible
+training rows for one window. Keep that `Preprocessor` instance alongside the
+eventual fitted model. Transforming validation, test, or context never refits
+the scaler. `Preprocessor` can still be imported from `training.data_splitter`.
+
+`standardise_input(train, validation)` now returns two `PreparedDataset`
+containers instead of four arrays. Each container has `X`, `y`, `metadata`, and
+`feature_names`. Metadata carries UTC observation/target dates and asset;
+metadata never enters the numeric feature array. `y` is `None` for feature-only
+context or future prediction rows transformed with `require_target=False`.
+
+```python
+from training.preprocessing import Preprocessor
+from training.dataset_gen import DatasetGenerator
+
+preprocessor = Preprocessor()
+train_data, validation_data = preprocessor.standardise_input(train, validation)
+builder = DatasetGenerator()
+tabular_train = builder.build_tabular(train_data)
+sequence_train = builder.build_sequences(train_data, sequence_length=20)
+
+# full_features is the complete feature history, not just model_ready rows.
+# This includes recent rows with unknown labels but already known features.
+history = preprocessor.transform(full_features, require_target=False)
+sequence_validation = builder.build_sequences(
+    validation_data, sequence_length=20, history=history
+)
+```
+
+Sequences contain only observations up to and including their endpoint, and
+use that endpoint's target and metadata. Explicit history preserves the first
+validation prediction when enough context exists. It must be the complete
+observed feature history, transformed using the same preprocessor, with the
+same asset and feature order. Do not use label-filtered rows as context: that
+would omit recent observed bars. Undefined context features cause an error,
+rather than silently bridging those rows. With no explicit history, the first
+`sequence_length - 1` training endpoints are omitted. Insufficient context,
+invalid lengths, mismatched arrays, and mixed assets are rejected. No model is
+fitted in this stage.
+
 1. Target Generation:
     1. Predict next opening RETURN:
         
