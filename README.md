@@ -73,9 +73,36 @@ then separates rows into:
 The final two observations normally have incomplete targets. Features and
 targets are calculated before filtering, so exclusions cannot shift the
 meaning of a target. Model-ready means numerically complete, not available at
-a particular historical cutoff; stage 4 must still enforce label availability.
+a particular historical cutoff; the stage 4 splitter enforces label availability.
 The complete feature history remains available for later sequence context and
 future predictions whose targets are not yet known.
+
+## Label availability and walk-forward boundaries (stage 4)
+
+Pass the stage 3 `model_ready` output to `DataSplitter.split`. Dates loaded
+from CSV are parsed as UTC. Each fit occurs after the last daily bar before
+the next prediction window starts. Training requires both `date` and
+`target_exit_date` to be strictly before that window start. This removes
+trailing rows whose labels were not yet observable, even though their features
+were available. No fixed calendar-day gap is assumed: actual target dates
+handle weekends and missing trading observations.
+
+Expanding training starts in 2000; fixed windows use the requested years of
+history, bounded below by 2000. Tuning predictions cover 2018--2021. Tuning
+labels must exit before 2022, so selection cannot use test-period prices.
+Labels may cross internal validation windows; the following fit independently
+checks their availability. `get_test_set` selects 2022--2025 rows with target
+exits before 2026. It does not implement test-period retraining.
+
+Window lengths must be positive integers. `step_months` must equal
+`validation_months`, ensuring contiguous, non-overlapping prediction periods.
+The final period is shortened to the 2022 boundary when necessary. Empty
+training or validation windows raise an error rather than silently skipping
+missing coverage. The current local SPY cache ends in 2017, so additional
+2018--2025 data is needed for an actual validation/test run.
+
+Example configuration:
+`WindowConfig(mode="fixed", train_years=5, validation_months=3, step_months=3)`
 
 1. Target Generation:
     1. Predict next opening RETURN:
