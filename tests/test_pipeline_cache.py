@@ -41,7 +41,7 @@ class PipelineCacheTests(unittest.TestCase):
                     first = run_pipeline("SPY", "2015-01-01", "2015-12-31", "daily")
                     snapshots = {
                         folder: Path(f"data/{folder}/SPY_2015-01-01_2015-12-31.csv").read_bytes()
-                        for folder in ("raw", "normalised", "cleaned", "features")
+                        for folder in ("raw", "normalised", "cleaned", "features", "model_ready", "excluded")
                     }
                     second = run_pipeline("SPY", "2015-01-01", "2015-12-31", "daily")
                     fetch.assert_called_once_with()
@@ -59,6 +59,8 @@ class PipelineCacheTests(unittest.TestCase):
                     )
                 saved = pd.read_csv("data/features/SPY_2015-01-01_2015-12-31.csv")
                 self.assertEqual(len(saved), 260)
+                self.assertEqual(len(pd.read_csv("data/model_ready/SPY_2015-01-01_2015-12-31.csv")), 59)
+                self.assertEqual(len(pd.read_csv("data/excluded/SPY_2015-01-01_2015-12-31.csv")), 201)
             finally:
                 os.chdir(original_directory)
 

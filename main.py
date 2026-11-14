@@ -12,6 +12,7 @@ from data_pipeline.fetcher import Fetcher
 from data_pipeline.normaliser import Normaliser
 from features.featureEngineer import FeatureEngineer
 from training.target_gen import TargetGenerator
+from training.row_eligibility import select_model_rows
 
 
 def create_feature_vector(data_dataframe):
@@ -38,7 +39,10 @@ def run_pipeline(symbol, start, end, freq, api_key=None):
     observations = prepare_daily_observations(cleaned, symbol)
     features = create_feature_vector(observations)
     result = add_target_return(observations, features)
+    model_ready, excluded = select_model_rows(result)
     CSVsaver("features", symbol, start, end).save_as_csv(result)
+    CSVsaver("model_ready", symbol, start, end).save_as_csv(model_ready)
+    CSVsaver("excluded", symbol, start, end).save_as_csv(excluded)
     return result
 
 

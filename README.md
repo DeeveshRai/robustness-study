@@ -23,8 +23,8 @@ The feature output retains `asset` and `date`. Target generation adds
 `target_entry_date` (the next observed trading date) and `target_exit_date`
 (the second subsequent trading date). These follow observations, not calendar
 days. The target becomes observable at the exit day's open. Missing future
-observations remain missing; filtering and label-availability enforcement
-will be implemented in later stages. Metadata is excluded from numeric model
+observations remain missing; completeness filtering is described in stage 3,
+and label-availability enforcement remains stage 4. Metadata is excluded from numeric model
 inputs by the existing explicit feature list.
 
 Run the contract checks with:
@@ -47,6 +47,35 @@ contract boundary and retained in the feature/target CSV.
 
 Example using an existing cache:
 `.\.venv\Scripts\python.exe -B main.py spy 1999-01-03 2017-12-31 daily`
+
+## Feature and target eligibility (stage 3)
+
+`features/schema.py` defines the 20 ordered numeric inputs shared by feature
+generation and preprocessing. `atr14_norm` is ATR14 divided by adjusted close,
+so it is dimensionless. Unavailable indicators on short histories remain NaN.
+
+Generate features and targets from the complete available history before
+selecting training dates. The first 199 observations supply the SMA200 warm-up;
+earlier requested data (for example, 1999 before training starts in 2000) is
+retained for this purpose. If the downloaded history is insufficient, the
+pipeline excludes the affected rows; it does not fetch additional history
+automatically or manufacture missing values.
+
+`training/row_eligibility.py` checks required numeric columns and target dates,
+then separates rows into:
+
+- `data/features`: the complete feature/target history, including missing values.
+- `data/model_ready`: rows after warm-up with all 20 finite features, a finite
+  target, and known entry/exit dates. Use this output for supervised training.
+- `data/excluded`: remaining rows with `exclusion_reason` values: `warmup`,
+  `invalid_features`, and/or `incomplete_target`.
+
+The final two observations normally have incomplete targets. Features and
+targets are calculated before filtering, so exclusions cannot shift the
+meaning of a target. Model-ready means numerically complete, not available at
+a particular historical cutoff; stage 4 must still enforce label availability.
+The complete feature history remains available for later sequence context and
+future predictions whose targets are not yet known.
 
 1. Target Generation:
     1. Predict next opening RETURN:

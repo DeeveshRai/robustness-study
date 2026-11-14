@@ -2,35 +2,14 @@ import pandas as pd
 import numpy as np
 import pandas_ta as ta
 from data_pipeline.contracts import prepare_daily_observations
+from features.schema import FEATURE_COLUMNS
 
 class FeatureEngineer:
     def __init__(self, data):
         self.data = prepare_daily_observations(data)
 
-        self.features = pd.DataFrame(columns=['date',
-                                      'returns_1d', 
-                                      'returns_5d',
-                                      'returns_20d',
-                                      'returns_60d',
-                                      'returns_lag1',
-                                      'returns_lag2',
-                                      'sma_20_vs_prices',
-                                      'sma_50_vs_prices',
-                                      'sma_200_vs_prices',
-                                      'macd_norm',
-                                      'rsi_14',
-                                      'volatility_5d',
-                                      'volatility_20d',
-                                      'atr14_norm',
-                                      'bollinger_width20',
-                                      'relative_volume20',
-                                      'volume_change_1d',
-                                      'high_low_range',
-                                      'open_close_return',
-                                      'overnight_gap',
-                                      'target_return'
-                                      ]) #add rest later
-        
+        self.features = pd.DataFrame(np.nan, index=self.data.index, columns=FEATURE_COLUMNS)
+
         self.features["date"] = self.data["date"]
         self.features["asset"] = self.data["asset"]
 
@@ -66,12 +45,13 @@ class FeatureEngineer:
             * np.sqrt(252)
         )
 
-        self.features["atr14_norm"] = ta.atr(self.data["adjHigh"], self.data["adjLow"], self.data["adjClose"], length=14)
+        atr = ta.atr(self.data["adjHigh"], self.data["adjLow"], self.data["adjClose"], length=14)
+        self.features["atr14_norm"] = atr / self.data["adjClose"] if atr is not None else np.nan
 
         #AI
         bbands = ta.bbands(self.data["adjClose"], length=20, std=2)
-        bbu_col = next((c for c in bbands.columns if c.startswith("BBU_")), None)
-        bbl_col = next((c for c in bbands.columns if c.startswith("BBL_")), None)
+        bbu_col = next((c for c in (bbands.columns if bbands is not None else []) if c.startswith("BBU_")), None)
+        bbl_col = next((c for c in (bbands.columns if bbands is not None else []) if c.startswith("BBL_")), None)
 
         if bbu_col and bbl_col:
             self.features["bollinger_width20"] = (bbands[bbu_col] - bbands[bbl_col]) / self.data["adjClose"]
@@ -100,4 +80,5 @@ class FeatureEngineer:
         self._add_volume_features()
         self._add_OHLC_features()
 
+        self.features[FEATURE_COLUMNS] = self.features[FEATURE_COLUMNS].apply(pd.to_numeric, errors="raise")
         return self.features

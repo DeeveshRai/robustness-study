@@ -6,6 +6,7 @@
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
 from dataclasses import dataclass
+from features.schema import FEATURE_COLUMNS
 
 @dataclass
 class WindowConfig:
@@ -74,28 +75,7 @@ class DataSplitter:
 
 class Preprocessor:
     def __init__(self):
-        self.columns =[
-                                'returns_1d', 
-                                'returns_5d',
-                                'returns_20d',
-                                'returns_60d',
-                                'returns_lag1',
-                                'returns_lag2',
-                                'sma_20_vs_prices',
-                                'sma_50_vs_prices',
-                                'sma_200_vs_prices',
-                                'macd_norm',
-                                'rsi_14',
-                                'volatility_5d',
-                                'volatility_20d',
-                                'atr14_norm',
-                                'bollinger_width20',
-                                'relative_volume20',
-                                'volume_change_1d',
-                                'high_low_range',
-                                'open_close_return',
-                                'overnight_gap',
-                                ]
+        self.columns = FEATURE_COLUMNS.copy()
 
     def standardise_input(self, train, validation):
         scaler = StandardScaler()
