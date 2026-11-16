@@ -49,19 +49,24 @@ class DataSplitter:
             raise ValueError("Expected feature date < target entry < target exit")
         return result
 
-    def split(self, df, config: WindowConfig):
-        """Yield (train, validation) for tuning during 2018--2021.
+    def split(self, df, config: WindowConfig, period="validation"):
+        """Yield training/prediction rows for validation or frozen final testing.
 
         Fit after the last bar before validation_start. Exit dates on or after
         validation_start are unavailable at that fit. Validation outcomes may
-        cross internal windows, but must finish before the final test period.
+        cross internal windows, but must finish before the chosen period ends:
+        2022 for validation, 2026 for test. Test windows use the same historical
+        availability rule and may learn from earlier, already known test labels.
         """
+        if period not in ("validation", "test"):
+            raise ValueError("period must be 'validation' or 'test'")
         data = self._prepare(df)
-        validation_start = self.VALIDATION_START
-        while validation_start < self.TEST_START:
+        validation_start = self.VALIDATION_START if period == "validation" else self.TEST_START
+        period_end = self.TEST_START if period == "validation" else self.TEST_END
+        while validation_start < period_end:
             validation_end = min(
                 validation_start + pd.DateOffset(months=config.validation_months),
-                self.TEST_START,
+                period_end,
             )
             train_start = self.TRAIN_START
             if config.mode == "fixed":
@@ -77,7 +82,7 @@ class DataSplitter:
             validation = data.loc[
                 (data["date"] >= validation_start)
                 & (data["date"] < validation_end)
-                & (data["target_exit_date"] < self.TEST_START)
+                & (data["target_exit_date"] < period_end)
             ].copy()
             if train.empty or validation.empty:
                 raise ValueError(f"Empty training or validation window at {validation_start.date()}; check data coverage")

@@ -204,6 +204,33 @@ history. The existing local SPY cache ends in 2017, so it cannot run these
 research windows yet. Training execution is verified using synthetic histories;
 no predictive-performance claims follow from those checks.
 
+## Configuration selection and final evaluation (stage 7)
+
+See [RUNNING_MODELS.md](RUNNING_MODELS.md) for SPY data requirements, commands
+for different models, candidate configuration, and the complete selection/test
+workflow. The new CLI has separate `select` and `test` commands:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m training.run_experiment select data/model_ready/spy_1999-01-03_2025-12-31.csv training/candidates.example.json data/experiments/spy_validation --metric mae
+.\.venv\Scripts\python.exe -B -m training.run_experiment test data/model_ready/spy_1999-01-03_2025-12-31.csv data/experiments/spy_validation/selected.json data/experiments/spy_test
+```
+
+Selection pools validation predictions from 2018--2021 and freezes the winning
+model parameters and window settings in `selected.json`. Test observations and
+outcomes crossing into 2022 are excluded from selection. The final test reads
+that snapshot and retrains at its scheduled 2022--2025 cutoffs using only known
+labels; it does not tune settings. MAE, RMSE, and sign-based directional
+accuracy are reported overall and per window, alongside the zero-return
+baseline. Trading performance is deferred until execution/cost assumptions
+are defined. Built-in selection supports tabular models; custom sequence
+models continue to use the runner API.
+
+Use daily SPY prices from 1999 through 2025-12-31 for the common full-history
+experiment. Reuse the existing 1999--2017 raw cache and add 2018--2025; combine
+raw history before regenerating features. **2026 prices are not required**:
+test targets must exit before 2026, so the final two 2025 feature observations
+are not scored. The guide explains how to merge the caches.
+
 1. Target Generation:
     1. Predict next opening RETURN:
         

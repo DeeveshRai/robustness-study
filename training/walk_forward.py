@@ -1,4 +1,4 @@
-"""Run one configuration through the 2018--2021 tuning windows."""
+"""Run one configuration through validation or frozen final-test windows."""
 
 from dataclasses import dataclass
 from typing import Callable, Any
@@ -31,25 +31,29 @@ class WalkForwardResult:
     windows: list[FittedWindow]
     window_config: WindowConfig
     training_config: TrainingConfig
+    period: str = "validation"
 
 
 class WalkForwardRunner:
     def run(self, model_ready, window_config: WindowConfig,
             training_config: TrainingConfig | None = None,
-            model_factory: Callable[[], Any] = Ridge, full_features=None):
+            model_factory: Callable[[], Any] = Ridge, full_features=None,
+            period="validation"):
         """Fit a fresh scaler and model per window and return dated predictions.
 
         The factory must return a new, unfitted model on every call. Sequence
         models require the complete feature history for prediction context.
-        This runner does not select configurations or access the final test set.
+        This runner does not select configurations. The default period is
+        validation; use period='test' only with settings frozen on validation.
         """
         config = training_config or TrainingConfig()
         if config.dataset_dimensions == "sequence" and full_features is None:
             raise ValueError("Sequence validation requires full_features history")
         splitter, builder = DataSplitter(), DatasetGenerator()
         records, artifacts = [], []
-        for window_id, (train, validation) in enumerate(splitter.split(model_ready, window_config)):
-            fit_before = splitter.VALIDATION_START + pd.DateOffset(
+        period_start = splitter.VALIDATION_START if period == "validation" else splitter.TEST_START
+        for window_id, (train, validation) in enumerate(splitter.split(model_ready, window_config, period)):
+            fit_before = period_start + pd.DateOffset(
                 months=window_id * window_config.step_months
             )
             preprocessor = Preprocessor()
@@ -89,6 +93,7 @@ class WalkForwardRunner:
             output["baseline_prediction"] = np.zeros(len(output))
             output["window_id"] = window_id
             output["fit_before"] = fit_before
+            output["period"] = period
             records.append(output)
             artifacts.append(FittedWindow(
                 window_id, fit_before, training_data.metadata.date.min(),
@@ -99,4 +104,4 @@ class WalkForwardRunner:
         predictions = pd.concat(records, ignore_index=True)
         if predictions.duplicated(["asset", "date"]).any():
             raise ValueError("Walk-forward predictions must be unique per asset/date")
-        return WalkForwardResult(predictions, artifacts, window_config, config)
+        return WalkForwardResult(predictions, artifacts, window_config, config, period)
